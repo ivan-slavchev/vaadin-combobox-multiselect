@@ -258,11 +258,9 @@ implements FieldEvents.BlurNotifier, FieldEvents.FocusNotifier, HasFilterableDat
 
         final List<String> captions = new ArrayList<>();
 
-        if (getState().selectedItemKeys != null) {
-            for (final T item : items) {
-                if (item != null) {
-                    captions.add(getItemCaptionGenerator().apply(item));
-                }
+        for (final T item : items) {
+            if (item != null) {
+                captions.add(getItemCaptionGenerator().apply(item));
             }
         }
 
@@ -875,7 +873,7 @@ implements FieldEvents.BlurNotifier, FieldEvents.FocusNotifier, HasFilterableDat
 
         fireEvent(new MultiSelectionEvent<>(this, oldSelection, userOriginated));
 
-        getDataCommunicator().reset();
+//        getDataCommunicator().reset();
         getDataProvider().refreshAll();
     }
 
@@ -890,17 +888,14 @@ implements FieldEvents.BlurNotifier, FieldEvents.FocusNotifier, HasFilterableDat
      * @param items the selected items or {@code null} to clear selection
      */
     protected void doSetSelectedKeys(final List<T> items) {
-        final Set<String> keys = itemsToKeys(items);
-
-        getState().selectedItemKeys = keys;
-
+        getState().selectedItemKeys = itemsToKeys(items);
         updateSelectedItemsCaption();
     }
 
     private void updateSelectedItemsCaption() {
         final List<T> items = new ArrayList<>();
 
-        if (getState().selectedItemKeys != null && !getState().selectedItemKeys.isEmpty()) {
+        if (!getState().selectedItemKeys.isEmpty()) {
             for (final String selectedItemKey : getState().selectedItemKeys) {
                 final T value = getDataCommunicator().getKeyMapper()
                         .get(selectedItemKey);
@@ -936,7 +931,7 @@ implements FieldEvents.BlurNotifier, FieldEvents.FocusNotifier, HasFilterableDat
      */
     protected Set<String> itemsToKeys(final List<T> items) {
         if (items == null) {
-            return null;
+            return new HashSet<>();
         }
 
         final Set<String> keys = new LinkedHashSet<>();

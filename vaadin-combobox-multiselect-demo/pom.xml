@@ -16,8 +16,8 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>
-		<vaadin.version>8.1.5</vaadin.version>
-		<vaadin.plugin.version>8.1.5</vaadin.plugin.version>
+		<vaadin.version>8.7.2</vaadin.version>
+		<vaadin.plugin.version>8.7.2</vaadin.plugin.version>
 		<jetty.plugin.version>9.3.9.v20160517</jetty.plugin.version>
 	</properties>
 
@@ -114,7 +114,7 @@
 						<configuration>
 							<!-- if you don't specify any modules, the plugin will find them -->
 							<!-- <style> shows readable javascript code --> 
-							<style>DETAILED</style>
+							<style>PRETTY</style>
 						</configuration>
 						<goals>
 							<goal>resources</goal>

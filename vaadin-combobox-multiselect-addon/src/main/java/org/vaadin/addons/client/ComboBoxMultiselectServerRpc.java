@@ -69,5 +69,5 @@ public interface ComboBoxMultiselectServerRpc extends ServerRpc {
 	/**
 	 * Clear.
 	 */
-	public void clear(String filter);
+	void clear(String filter);
 }

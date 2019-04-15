@@ -51,9 +51,10 @@ public class DemoItem {
 		StringGenerator sg = new StringGenerator();
 		for (int i = 1; i < size + 1; i++) {
 			DemoItem demoItem = new DemoItem();
-			demoItem.setCaption(sg.nextString(true) + " " + sg.nextString(false));
+//			demoItem.setCaption(sg.nextString(true) + " " + sg.nextString(false));
+			demoItem.setCaption(String.valueOf(i + 1000));
 			demoItem.setIndex(i);
-			demoItem.setDescription(sg.nextString(true) + " " + sg.nextString(false) + " " + sg.nextString(false));
+//			demoItem.setDescription(sg.nextString(true) + " " + sg.nextString(false) + " " + sg.nextString(false));
 			demoItem.setIcon(testIcon.get());
 			items.add(demoItem);
 		}

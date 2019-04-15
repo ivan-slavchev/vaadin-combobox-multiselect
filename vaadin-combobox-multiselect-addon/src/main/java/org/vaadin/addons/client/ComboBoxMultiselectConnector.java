@@ -45,9 +45,9 @@ import elemental.json.JsonObject;
 public class ComboBoxMultiselectConnector extends AbstractListingConnector
 implements HasRequiredIndicator, HasDataSource, SimpleManagedLayout, HasErrorIndicator {
 
-    private final ComboBoxMultiselectServerRpc rpc = getRpcProxy(ComboBoxMultiselectServerRpc.class);
+    private ComboBoxMultiselectServerRpc rpc = getRpcProxy(ComboBoxMultiselectServerRpc.class);
 
-    private final FocusAndBlurServerRpc focusAndBlurRpc = getRpcProxy(FocusAndBlurServerRpc.class);
+    private FocusAndBlurServerRpc focusAndBlurRpc = getRpcProxy(FocusAndBlurServerRpc.class);
 
     private Registration dataChangeHandlerRegistration;
 
@@ -58,7 +58,7 @@ implements HasRequiredIndicator, HasDataSource, SimpleManagedLayout, HasErrorInd
     }
 
     @Override
-    public void onStateChanged(final StateChangeEvent stateChangeEvent) {
+    public void onStateChanged(StateChangeEvent stateChangeEvent) {
         super.onStateChanged(stateChangeEvent);
 
         Profiler.enter("ComboBoxMultiselectConnector.onStateChanged update content");
@@ -111,7 +111,7 @@ implements HasRequiredIndicator, HasDataSource, SimpleManagedLayout, HasErrorInd
     }
 
     @Override
-    public void setWidgetEnabled(final boolean widgetEnabled) {
+    public void setWidgetEnabled(boolean widgetEnabled) {
         super.setWidgetEnabled(widgetEnabled);
         getWidget().enabled = widgetEnabled;
         getWidget().tb.setEnabled(widgetEnabled);
@@ -132,8 +132,8 @@ implements HasRequiredIndicator, HasDataSource, SimpleManagedLayout, HasErrorInd
      * @param itemValue
      *            user entered string value for the new item
      */
-    public void sendNewItem(final String itemValue) {
-        this.rpc.createNewItem(itemValue);
+    public void sendNewItem(String itemValue) {
+        rpc.createNewItem(itemValue);
         getDataReceivedHandler().clearPendingNavigation();
     }
 
@@ -147,11 +147,11 @@ implements HasRequiredIndicator, HasDataSource, SimpleManagedLayout, HasErrorInd
      * @param filter
      *            the current filter string
      */
-    protected void setFilter(final String filter) {
+    protected void setFilter(String filter) {
         if (!Objects.equals(filter, getWidget().lastFilter)) {
             getDataReceivedHandler().clearPendingNavigation();
 
-            this.rpc.setFilter(filter);
+            rpc.setFilter(filter);
         }
     }
 
@@ -170,7 +170,7 @@ implements HasRequiredIndicator, HasDataSource, SimpleManagedLayout, HasErrorInd
      * @param filter
      *            the filter to apply, never {@code null}
      */
-    public void requestPage(int page, final String filter) {
+    public void requestPage(int page, String filter) {
         setFilter(filter);
 
         if (page < 0) {
@@ -182,15 +182,12 @@ implements HasRequiredIndicator, HasDataSource, SimpleManagedLayout, HasErrorInd
                 page = 0;
             }
         }
-        //        int calcPage = page > 0 ? page : 1;
-        final int startIndex = Math.max(0, page * getWidget().pageLength);
-        int pageLength = ((getDataSource().size() - (page * getWidget().pageLength)) >= getWidget().pageLength) ? getWidget().pageLength : getDataSource().size() - (page * getWidget().pageLength);
 
-        if (startIndex > 0) {
-            pageLength = pageLength + startIndex;
-        }
+        int adjustment = getWidget().getIndexAdjustment();
+
+        int startIndex = Math.max(0, page * getWidget().pageLength - adjustment);
+        int pageLength = getWidget().pageLength > 0 ? getWidget().pageLength : getDataSource().size();
         getDataSource().ensureAvailability(startIndex, pageLength);
-
     }
 
     /**
@@ -222,9 +219,9 @@ implements HasRequiredIndicator, HasDataSource, SimpleManagedLayout, HasErrorInd
      * @since 8.0
      */
     public void sendFocusEvent() {
-        final boolean registeredListeners = hasEventListener(EventId.FOCUS);
+        boolean registeredListeners = hasEventListener(EventId.FOCUS);
         if (registeredListeners) {
-            this.focusAndBlurRpc.focus();
+            focusAndBlurRpc.focus();
             getDataReceivedHandler().clearPendingNavigation();
         }
     }
@@ -241,9 +238,9 @@ implements HasRequiredIndicator, HasDataSource, SimpleManagedLayout, HasErrorInd
      * @since 8.0
      */
     public void sendBlurEvent() {
-        final boolean registeredListeners = hasEventListener(EventId.BLUR);
+        boolean registeredListeners = hasEventListener(EventId.BLUR);
         if (registeredListeners) {
-            this.focusAndBlurRpc.blur();
+            focusAndBlurRpc.blur();
             getDataReceivedHandler().clearPendingNavigation();
         }
 
@@ -252,15 +249,15 @@ implements HasRequiredIndicator, HasDataSource, SimpleManagedLayout, HasErrorInd
     }
 
     @Override
-    public void setDataSource(final DataSource<JsonObject> dataSource) {
+    public void setDataSource(DataSource<JsonObject> dataSource) {
         super.setDataSource(dataSource);
-        this.dataChangeHandlerRegistration = dataSource.addDataChangeHandler(new PagedDataChangeHandler(dataSource));
+        dataChangeHandlerRegistration = dataSource.addDataChangeHandler(new PagedDataChangeHandler(dataSource));
     }
 
     @Override
     public void onUnregister() {
         super.onUnregister();
-        this.dataChangeHandlerRegistration.remove();
+        dataChangeHandlerRegistration.remove();
     }
 
     @Override
@@ -271,12 +268,40 @@ implements HasRequiredIndicator, HasDataSource, SimpleManagedLayout, HasErrorInd
     private void refreshData() {
         updateCurrentPage();
 
-        final int start = getWidget().currentPage * getWidget().pageLength;
-        int end = (getDataSource().size() - start) >= getWidget().pageLength ? getWidget().pageLength : getDataSource().size() - start;
+        int start = getWidget().currentPage * getWidget().pageLength;
+        int end = getWidget().pageLength > 0 ? start + getWidget().pageLength
+                : getDataSource().size();
+
         getWidget().currentSuggestions.clear();
 
-        if (start > 0) {
-            end = end + start;
+        if (getWidget().getClearItemShouldBeVisible()) {
+            // add special null selection item...
+            if (isFirstPage()) {
+                addClearItem();
+            } else {
+                // ...or leave space for it
+                start = start - 1;
+            }
+            // in either case, the last item to show is
+            // shifted by one, unless no paging is used
+            if (getState().pageLength != 0) {
+                end = end - 1;
+            }
+        }
+
+        if (getWidget().getSelectAllItemShouldBeVisible()) {
+            // add special null selection item...
+            if (isFirstPage()) {
+                addSelectAllItem();
+            } else {
+                // ...or leave space for it
+                start = start - 1;
+            }
+            // in either case, the last item to show is
+            // shifted by one, unless no paging is used
+            if (getState().pageLength != 0) {
+                end = end - 1;
+            }
         }
 
         updateSuggestions(start, end);
@@ -285,19 +310,15 @@ implements HasRequiredIndicator, HasDataSource, SimpleManagedLayout, HasErrorInd
         getDataReceivedHandler().dataReceived();
     }
 
-    private void updateSuggestions(final int start, final int end) {
+    private void updateSuggestions(int start, int end) {
         for (int i = start; i < end; ++i) {
-            final JsonObject row = getDataSource().getRow(i);
-            if (row == null) {
-                getDataSource().ensureAvailability(start, end);
-            }
+            JsonObject row = getDataSource().getRow(i);
             if (row != null) {
-                final String key = AbstractListingConnector.getRowKey(row);
-                final String caption = row.getString(DataCommunicatorConstants.NAME);
-                final String style = row.getString(ComboBoxMultiselectConstants.STYLE);
-                final String untranslatedIconUri = row.getString(ComboBoxMultiselectConstants.ICON);
-                final ComboBoxMultiselectSuggestion suggestion = getWidget().new ComboBoxMultiselectSuggestion(key, caption,
-                                                                                                               style, untranslatedIconUri);
+                String key = getRowKey(row);
+                String caption = row.getString(DataCommunicatorConstants.NAME);
+                String style = row.getString(ComboBoxMultiselectConstants.STYLE);
+                String untranslatedIconUri = row.getString(ComboBoxMultiselectConstants.ICON);
+                ComboBoxMultiselectSuggestion suggestion = getWidget().new ComboBoxMultiselectSuggestion(key, caption, style, untranslatedIconUri);
                 getWidget().currentSuggestions.add(suggestion);
             } else {
                 // there is not enough options to fill the page
@@ -310,6 +331,22 @@ implements HasRequiredIndicator, HasDataSource, SimpleManagedLayout, HasErrorInd
         return getWidget().currentPage == 0;
     }
 
+    private void addClearItem() {
+        if (isFirstPage()) {
+            getWidget().currentSuggestions.add(0,
+                    getWidget().new ComboBoxMultiselectSuggestion(VComboBoxMultiselect.CLEAR_KEY,
+                            getState().clearButtonCaption, null, null));
+        }
+    }
+
+    private void addSelectAllItem() {
+        if (isFirstPage()) {
+            getWidget().currentSuggestions.add(0,
+                    getWidget().new ComboBoxMultiselectSuggestion(VComboBoxMultiselect.SELECT_ALL_KEY,
+                            getState().selectAllButtonCaption, null, null));
+        }
+    }
+
     private void updateCurrentPage() {
         // try to find selected item if requested
         if (getState().scrollToSelectedItem && getState().pageLength > 0 && getWidget().currentPage < 0
@@ -317,11 +354,11 @@ implements HasRequiredIndicator, HasDataSource, SimpleManagedLayout, HasErrorInd
             // search for the item with the selected key
             getWidget().currentPage = 0;
             for (int i = 0; i < getDataSource().size(); ++i) {
-                final JsonObject row = getDataSource().getRow(i);
+                JsonObject row = getDataSource().getRow(i);
                 if (row != null) {
-                    final String key = AbstractListingConnector.getRowKey(row);
+                    String key = getRowKey(row);
                     if (getWidget().selectedOptionKeys.contains(key)) {
-                        getWidget().currentPage = i / getState().pageLength;
+                        getWidget().currentPage = i + getWidget().getIndexAdjustment() / getState().pageLength;
                         break;
                     }
                 }
@@ -337,42 +374,43 @@ implements HasRequiredIndicator, HasDataSource, SimpleManagedLayout, HasErrorInd
 
         private final DataSource<?> dataSource;
 
-        public PagedDataChangeHandler(final DataSource<?> dataSource) {
+        public PagedDataChangeHandler(DataSource<?> dataSource) {
             this.dataSource = dataSource;
         }
 
         @Override
-        public void dataUpdated(final int firstRowIndex, final int numberOfRows) {
+        public void dataUpdated(int firstRowIndex, int numberOfRows) {
             // NOOP since dataAvailable is always triggered afterwards
         }
 
         @Override
-        public void dataRemoved(final int firstRowIndex, final int numberOfRows) {
+        public void dataRemoved(int firstRowIndex, int numberOfRows) {
             // NOOP since dataAvailable is always triggered afterwards
         }
 
         @Override
-        public void dataAdded(final int firstRowIndex, final int numberOfRows) {
+        public void dataAdded(int firstRowIndex, int numberOfRows) {
             // NOOP since dataAvailable is always triggered afterwards
         }
 
         @Override
-        public void dataAvailable(final int firstRowIndex, final int numberOfRows) {
+        public void dataAvailable(int firstRowIndex, int numberOfRows) {
             refreshData();
         }
 
         @Override
-        public void resetDataAndSize(final int estimatedNewDataSize) {
+        public void resetDataAndSize(int estimatedNewDataSize) {
             if (getState().pageLength == 0) {
                 if (getWidget().suggestionPopup.isShowing()) {
-                    this.dataSource.ensureAvailability(0, estimatedNewDataSize);
+                    dataSource.ensureAvailability(0, estimatedNewDataSize);
                 }
                 // else lets just wait till the popup is opened before
                 // everything is fetched to it. this could be optimized later on
                 // to fetch everything if in-memory data is used.
-            } else {
-                this.dataSource.ensureAvailability(0, getState().pageLength);
             }
+//            else {
+//                dataSource.ensureAvailability(0, getState().pageLength);
+//            }
         }
 
     }
